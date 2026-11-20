@@ -2,6 +2,13 @@
 name = "ditch"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+description = "Delete regenerable build output from development projects."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/baoulo/ditch.git"
+readme = "README.md"
+keywords = ["clean", "build", "disk", "cli", "artifacts"]
+categories = ["command-line-utilities", "development-tools", "filesystem"]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }

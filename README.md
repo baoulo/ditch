@@ -6,7 +6,11 @@ It only removes a directory when a project file sits next to it (`Cargo.toml` be
 
 ## Install
 
-From the repository:
+```sh
+cargo install ditch
+```
+
+To track `main` instead of the published release:
 
 ```sh
 cargo install --git https://github.com/baoulo/ditch.git
