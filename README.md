@@ -72,6 +72,7 @@ With no paths, `ditch` scans the current directory. Each path must be a director
 | `--exclude <NAMES>` | Directory names never to descend into, comma-separated. |
 | `--min-size-mb <N>` | Leave directories smaller than `N` megabytes alone. Default `0`. |
 | `--list-kinds` | Print the supported kinds and exit. |
+| `--config <PATH>` | Load extra rules from this file instead of `./ditch.toml`. |
 | `-h`, `--help` | Print help. |
 | `-V`, `--version` | Print the version. |
 
@@ -145,6 +146,31 @@ Rust `target/` has one extra check. It is removed only when it contains `CACHEDI
 
 Most of these directories come back from a normal build. `node_modules` does not: reinstall dependencies after deleting it.
 
+## Custom rules
+
+A `ditch.toml` in the current directory adds rules. It does not replace the built-in ones. `--config` loads a file from somewhere else instead of `./ditch.toml`. `ditch` does not look for a config file inside the trees it scans, so a `ditch.toml` buried in `~/src` changes nothing.
+
+```toml
+[[rule]]
+kind = "docs"
+markers = ["mkdocs.yml"]
+dirs = ["site"]
+
+[[rule]]
+kind = "python"
+markers = ["pyproject.toml"]
+dirs = ["htmlcov"]
+sentinels = [".gitignore"]
+```
+
+`kind` and `dirs` are required. `markers` and `sentinels` are optional and default to empty. An empty `markers` list matches the directory anywhere, the same way `__pycache__` does. A marker that starts with `*` matches by suffix. Reusing a built-in kind name adds another rule under that name, and `--only` and `--skip` apply to the combined set.
+
+```sh
+ditch -n --config ~/dotfiles/ditch.toml ~/src
+```
+
+A `--config` path that is missing, or a file that does not parse, exits with status 1 and deletes nothing. `ditch --list-kinds` includes rules from the loaded file.
+
 ## How a scan works
 
 `ditch` does not follow symlinks, so a symlinked directory is neither entered nor deleted. It never enters `.git`. It never enters a directory named in `--exclude`.
@@ -160,6 +186,6 @@ Matches are sized in parallel, then printed largest first, with a per-kind summa
 | Code | When |
 | --- | --- |
 | 0 | Nothing to remove, a dry run, a successful delete, or you answered no at the prompt. |
-| 1 | An unknown kind was requested, or at least one directory could not be deleted. |
+| 1 | The config file is missing or invalid, an unknown kind was requested, or at least one directory could not be deleted. |
 
 Directories that did delete are still removed when a later one fails. The `Freed` line counts only the ones that succeeded.

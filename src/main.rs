@@ -10,7 +10,7 @@ use clap::Parser;
 use rayon::prelude::*;
 use walkdir::WalkDir;
 
-use rules::{RULES, Rule};
+use rules::Rule;
 
 /// Recursively find development projects and delete their build output.
 #[derive(Parser)]
@@ -46,40 +46,59 @@ struct Cli {
     /// List the supported project kinds and what they clean, then exit
     #[arg(long)]
     list_kinds: bool,
+
+    /// Load extra rules from this file instead of ./ditch.toml
+    #[arg(long, value_name = "PATH")]
+    config: Option<PathBuf>,
 }
 
 struct Target {
     path: PathBuf,
-    kind: &'static str,
+    kind: String,
     size: u64,
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
+    let user_rules = match user_rules(cli.config.as_deref()) {
+        Ok(rules) => rules,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut rules = rules::builtin_rules();
+    rules.extend(user_rules);
+
     if cli.list_kinds {
-        for rule in RULES {
+        for rule in &rules {
             let markers = if rule.markers.is_empty() {
                 "(anywhere)".to_string()
             } else {
                 rule.markers.join(", ")
             };
-            println!("{:<8} {:<45} -> {}", rule.kind, markers, rule.dirs.join(", "));
+            println!(
+                "{:<8} {:<45} -> {}",
+                rule.kind,
+                markers,
+                rule.dirs.join(", ")
+            );
         }
         return ExitCode::SUCCESS;
     }
 
-    let known = rules::all_kinds();
+    let known = rules::kinds_of(&rules);
     for k in cli.only.iter().chain(&cli.skip) {
-        if !known.contains(&k.as_str()) {
+        if !known.iter().any(|kind| kind == k) {
             eprintln!("error: unknown kind '{k}' (known: {})", known.join(", "));
             return ExitCode::FAILURE;
         }
     }
-    let rules: Vec<&Rule> = RULES
+    let rules: Vec<&Rule> = rules
         .iter()
-        .filter(|r| cli.only.is_empty() || cli.only.iter().any(|k| k == r.kind))
-        .filter(|r| !cli.skip.iter().any(|k| k == r.kind))
+        .filter(|r| cli.only.is_empty() || cli.only.iter().any(|k| k == &r.kind))
+        .filter(|r| !cli.skip.iter().any(|k| k == &r.kind))
         .collect();
 
     let roots = if cli.paths.is_empty() {
@@ -101,7 +120,11 @@ fn main() -> ExitCode {
     let min_size = (cli.min_size_mb * 1024.0 * 1024.0) as u64;
     let mut targets: Vec<Target> = found
         .into_par_iter()
-        .map(|(path, kind)| Target { size: dir_size(&path), path, kind })
+        .map(|(path, kind)| Target {
+            size: dir_size(&path),
+            path,
+            kind,
+        })
         .filter(|t| t.size >= min_size)
         .collect();
     targets.sort_by_key(|t| std::cmp::Reverse(t.size));
@@ -144,16 +167,40 @@ fn main() -> ExitCode {
     }
     println!("\nFreed {}.", human(freed));
     if failures > 0 {
-        eprintln!("{failures} director{} could not be deleted.", if failures == 1 { "y" } else { "ies" });
+        eprintln!(
+            "{failures} director{} could not be deleted.",
+            if failures == 1 { "y" } else { "ies" }
+        );
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
 }
 
+fn user_rules(config: Option<&Path>) -> Result<Vec<Rule>, String> {
+    let path = match config {
+        Some(path) => {
+            if !path.is_file() {
+                return Err(format!("config file not found: {}", path.display()));
+            }
+            path.to_path_buf()
+        }
+        None => {
+            let default = PathBuf::from("ditch.toml");
+            if !default.is_file() {
+                return Ok(Vec::new());
+            }
+            default
+        }
+    };
+    rules::load_rules(&path)
+}
+
 /// Walks `dir` looking for build output directories. Does not follow symlinks
 /// and does not descend into directories it has marked for deletion.
-fn scan(dir: &Path, rules: &[&Rule], exclude: &[String], out: &mut Vec<(PathBuf, &'static str)>) {
-    let Ok(entries) = fs::read_dir(dir) else { return };
+fn scan(dir: &Path, rules: &[&Rule], exclude: &[String], out: &mut Vec<(PathBuf, String)>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
     let entries: Vec<_> = entries.flatten().collect();
     let names: Vec<String> = entries
         .iter()
@@ -168,11 +215,11 @@ fn scan(dir: &Path, rules: &[&Rule], exclude: &[String], out: &mut Vec<(PathBuf,
         }
         let path = entry.path();
 
-        let matched = rules.iter().find(|r| {
-            r.dirs.contains(&name.as_str()) && r.has_marker(&names) && has_sentinel(r, &path)
-        });
+        let matched = rules
+            .iter()
+            .find(|r| r.matches_dir(name) && r.has_marker(&names) && has_sentinel(r, &path));
         match matched {
-            Some(rule) => out.push((path, rule.kind)),
+            Some(rule) => out.push((path, rule.kind.clone())),
             // node_modules can be enormous; never walk into one we're not deleting.
             None if name == "node_modules" => {}
             None => scan(&path, rules, exclude, out),
@@ -214,7 +261,7 @@ fn disk_usage(m: &fs::Metadata, _seen: &mut HashSet<(u64, u64)>) -> u64 {
 fn print_summary(targets: &[Target]) {
     let mut by_kind: BTreeMap<&str, (usize, u64)> = BTreeMap::new();
     for t in targets {
-        let e = by_kind.entry(t.kind).or_default();
+        let e = by_kind.entry(t.kind.as_str()).or_default();
         e.0 += 1;
         e.1 += t.size;
     }
