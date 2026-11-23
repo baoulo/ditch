@@ -24,6 +24,26 @@ cargo install --path .
 
 This crate uses the 2024 edition, so you need Rust 1.85 or newer.
 
+Release binaries are also packaged for Homebrew, Scoop, asdf, and mise. The formulas live under `packaging/` and install from GitHub Releases. Checksums are filled by `sastri release update` after a release exists.
+
+```sh
+brew install baoulo/tap/ditch
+```
+
+```powershell
+scoop bucket add baoulo https://github.com/baoulo/scoop-bucket
+scoop install ditch
+```
+
+```sh
+asdf plugin add ditch https://github.com/baoulo/asdf-ditch.git
+asdf install ditch 0.1.0
+```
+
+```sh
+mise use -g github:baoulo/ditch@0.1.0
+```
+
 ## Quick start
 
 See what would be deleted under the current directory, and how much space it would free. Nothing is removed.

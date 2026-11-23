@@ -1,0 +1,26 @@
+{
+  "version": "0.1.0",
+  "description": "Delete regenerable build output from development projects.",
+  "homepage": "https://github.com/baoulo/ditch",
+  "license": "MIT OR Apache-2.0",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/baoulo/ditch/releases/download/v0.1.0/ditch-v0.1.0-windows-x86_64.zip",
+      "hash": "REPLACE_AFTER_RELEASE"
+    }
+  },
+  "bin": "ditch.exe",
+  "checkver": {
+    "github": "https://github.com/baoulo/ditch"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/baoulo/ditch/releases/download/v$version/ditch-v$version-windows-x86_64.zip",
+        "hash": {
+          "url": "https://github.com/baoulo/ditch/releases/download/v$version/SHA256SUMS"
+        }
+      }
+    }
+  }
+}
