@@ -1,3 +1,11 @@
+# Install-channel wrappers for the ditch executable.
+# Secrets are never stored here.
+# .github/workflows/ci.yml tests pushes and pull requests.
+# .github/workflows/release.yml builds the release binaries, publishes the
+# GitHub Release, pushes the Homebrew formula and Scoop manifest, then
+# publishes to crates.io. github_releases stays off so sastri generate does
+# not replace that workflow.
+
 [project]
 name = "ditch"
 description = "Delete regenerable build output from development projects."
