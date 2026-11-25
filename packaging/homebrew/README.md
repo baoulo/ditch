@@ -7,6 +7,6 @@ Checksums are filled from the GitHub Release `SHA256SUMS` by
 `sastri release update` (or `scripts/update-packaging-checksums.sh` as a fallback).
 
 ```bash
-sastri release update v0.1.0 --push-channels --commit-back pr
+sastri release update v0.2.0 --push-channels --commit-back pr
 brew install baoulo/tap/ditch
 ```

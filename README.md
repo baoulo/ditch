@@ -37,11 +37,11 @@ scoop install ditch
 
 ```sh
 asdf plugin add ditch https://github.com/baoulo/asdf-ditch.git
-asdf install ditch 0.1.0
+asdf install ditch 0.2.0
 ```
 
 ```sh
-mise use -g github:baoulo/ditch@0.1.0
+mise use -g github:baoulo/ditch@0.2.0
 ```
 
 ## Quick start
@@ -130,10 +130,16 @@ Delete without a prompt, for a script or a cron job:
 ditch -y --min-size-mb 50 ~/src
 ```
 
-List every kind the binary knows about:
+List every kind the binary knows about, including rules loaded from `ditch.toml`:
 
 ```sh
 ditch --list-kinds
+```
+
+Clean only a custom kind named in that file:
+
+```sh
+ditch -n --only docs
 ```
 
 ## What gets removed
@@ -170,6 +176,10 @@ Most of these directories come back from a normal build. `node_modules` does not
 
 A `ditch.toml` in the current directory adds rules. It does not replace the built-in ones. `--config` loads a file from somewhere else instead of `./ditch.toml`. `ditch` does not look for a config file inside the trees it scans, so a `ditch.toml` buried in `~/src` changes nothing.
 
+`kind` and `dirs` are required and must be non-empty. `markers` and `sentinels` are optional and default to empty. An empty `markers` list matches the directory anywhere, the same way `__pycache__` does. A marker that starts with `*` matches by suffix. Reusing a built-in kind name adds another rule under that name. `--only` and `--skip` apply to the combined set. Unknown keys, a missing `kind` or `dirs`, or an empty `dirs` list is an error, and nothing is deleted.
+
+This file removes a MkDocs site, coverage HTML next to a Python project, and editor scratch directories wherever they appear:
+
 ```toml
 [[rule]]
 kind = "docs"
@@ -181,15 +191,63 @@ kind = "python"
 markers = ["pyproject.toml"]
 dirs = ["htmlcov"]
 sentinels = [".gitignore"]
+
+[[rule]]
+kind = "editor"
+markers = []
+dirs = [".scratch"]
 ```
 
-`kind` and `dirs` are required. `markers` and `sentinels` are optional and default to empty. An empty `markers` list matches the directory anywhere, the same way `__pycache__` does. A marker that starts with `*` matches by suffix. Reusing a built-in kind name adds another rule under that name, and `--only` and `--skip` apply to the combined set.
+`ditch -n` from that directory reports the custom kinds beside the built-in ones:
+
+```text
+Scanning...
+     1.4 GB  rust     ./server/target
+    86.0 MB  docs     ./docs/site
+     4.2 MB  python   ./tools/htmlcov
+     1.1 MB  python   ./tools/.mypy_cache
+    12.0 KB  editor   ./notes/.scratch
+
+     1.4 GB  rust     (1 dirs)
+    86.0 MB  docs     (1 dirs)
+     5.3 MB  python   (2 dirs)
+    12.0 KB  editor   (1 dirs)
+     1.5 GB  total    (5 dirs)
+
+Dry run: nothing was deleted.
+```
+
+The `python` row includes both the built-in caches and `htmlcov`. `htmlcov` is removed only when `pyproject.toml` is next to it and the directory contains `.gitignore`. `.scratch` is removed in any directory, because its marker list is empty.
+
+Limit a run to the custom kind, or load the same file from another path:
 
 ```sh
+ditch -n --only docs
 ditch -n --config ~/dotfiles/ditch.toml ~/src
 ```
 
-A `--config` path that is missing, or a file that does not parse, exits with status 1 and deletes nothing. `ditch --list-kinds` includes rules from the loaded file.
+`--list-kinds` prints user rules after the built-in ones:
+
+```text
+docs     mkdocs.yml                                    -> site
+python   pyproject.toml                                -> htmlcov
+editor   (anywhere)                                    -> .scratch
+```
+
+A suffix marker works the same way as `*.csproj`. This removes `bin/` and `obj/` next to an Unreal module file:
+
+```toml
+[[rule]]
+kind = "unreal"
+markers = ["*.Build.cs"]
+dirs = ["Binaries", "Intermediate"]
+```
+
+A missing `--config` path or a file that does not parse exits with status 1 and deletes nothing:
+
+```text
+error: config file not found: /tmp/no-such.toml
+```
 
 ## How a scan works
 
