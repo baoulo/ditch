@@ -1,5 +1,10 @@
 # ditch
 
+
+<img width="600"  alt="ditch" src="https://github.com/user-attachments/assets/01684c66-2cf8-4bdb-9a94-ab48f5598f58" />
+
+
+
 `ditch` walks a directory tree, finds build output and other regenerable project junk, and deletes it. Source files, lockfiles, and git history stay put. Run it again after a rebuild and you get the disk space back.
 
 It only removes a directory when a project file sits next to it (`Cargo.toml` beside `target/`, `package.json` beside `node_modules/`, and so on). The exception is `__pycache__`, which is removed wherever it appears.
